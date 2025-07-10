@@ -1,18 +1,50 @@
 defmodule HeadlineMaker do
-  @moduledoc """
-  Documentation for `HeadlineMaker`.
-  """
+# Copyright 2025, Ralph Richard Cook
+#
+# This file is part of Prodigy Reloaded.
+#
+# Prodigy Reloaded is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General
+# Public License as published by the Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+#
+# Prodigy Reloaded is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+# the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License along with Prodigy Reloaded. If not,
+# see <https://www.gnu.org/licenses/>.
 
-  @doc """
-  Hello world.
 
-  ## Examples
+  def main(argv) do
+    {opts, _args, _invalid} =
+      OptionParser.parse(argv,
+        switches: [input: :string, output: :string, help: :boolean],
+        aliases: [i: :input, o: :output, h: :help]
+      )
 
-      iex> HeadlineMaker.hello()
-      :world
+    cond do
+      opts[:help] ->
+        print_help()
 
-  """
-  def hello do
-    :world
+      # opts[:input] && opts[:output] ->
+      opts[:output] ->
+        # IO.puts("Input: #{opts[:input]}")
+        IO.puts("Output: #{opts[:output]}")
+        # Here you would call your main logic, e.g. HeadlineMaker.run(opts)
+
+      true ->
+        IO.puts("Invalid options. Use --help for usage.")
+    end
+  end
+
+  defp print_help do
+    IO.puts("""
+    Usage: headline_maker [options]
+
+    Options:
+      -i, --input   Input file
+      -o, --output  Output file
+      -h, --help    Show this help message
+    """)
   end
 end
