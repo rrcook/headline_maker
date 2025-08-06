@@ -93,10 +93,6 @@ defmodule HeadlineWriter do
     end
   end
 
-  # TODO Move to ProdigyObjects
-  def edit_length(text, length),
-    do: String.slice(text, 0, length) |> String.pad_trailing(length, " ")
-
   defp page_setup(buffer, page_number, total_pages) do
     <<
       buf1::binary-size(9),
