@@ -18,8 +18,8 @@ defmodule HeadlineMaker do
   def main(argv) do
     {opts, _args, _invalid} =
       OptionParser.parse(argv,
-        switches: [input: :string, output: :string, help: :boolean],
-        aliases: [i: :input, o: :output, h: :help]
+        switches: [input: :string, output: :string, directory: :string, help: :boolean],
+        aliases: [i: :input, o: :output, d: :directory, h: :help]
       )
 
     cond do
@@ -27,10 +27,14 @@ defmodule HeadlineMaker do
         print_help()
 
       # opts[:input] && opts[:output] ->
-      opts[:output] ->
-        # IO.puts("Input: #{opts[:input]}")
-        IO.puts("Output: #{opts[:output]}")
-        # Here you would call your main logic, e.g. HeadlineMaker.run(opts)
+      opts[:input] ->
+        input = opts[:input]
+        output = opts[:output] || "NH00A000.BDY"
+        directory = opts[:directory] || "."
+
+        IO.puts("Input file: #{input}, Output files: #{output}, Directory: #{directory}")
+
+        HeadlineWriter.write_headlines(input, output, directory)
 
       true ->
         IO.puts("Invalid options. Use --help for usage.")

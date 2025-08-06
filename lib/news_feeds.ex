@@ -17,7 +17,8 @@ defmodule NewsFeeds do
   require Logger
 
   @number_of_feeds 10
-  @margin 60
+  # @margin 60
+  @margin 45
   @newline "\r\n "
   @utf_replace_map %{
     <<0xE2, 0x80, 0x98>> => "\'",
