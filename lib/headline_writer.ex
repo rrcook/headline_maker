@@ -18,6 +18,7 @@ defmodule HeadlineWriter do
   use NaplpsConstants
   import NaplpsWriter
 
+
   @number_of_pages 4
 
   # TODO Add these constants to NaplpsConstants
@@ -52,8 +53,8 @@ defmodule HeadlineWriter do
     # Create a page element object with the headline and story
 
     [file, ext] = String.split(output, ".", parts: 2)
-    file = edit_length(file, 8)
-    ext = edit_length(ext, 3)
+    file = ObjectUtils.edit_length(file, 8)
+    ext = ObjectUtils.edit_length(ext, 3)
 
     pds = make_pds(page_number, headline, story, number_of_pages)
 
