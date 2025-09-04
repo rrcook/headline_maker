@@ -25,7 +25,7 @@ defmodule TelnetClient do
   end
 
   @spec receive(port(), integer()) :: {:ok, binary()} | {:error, term()}
-  def receive(socket, timeout \\ 5000) do
+  def receive(socket, timeout \\ 1000) do
     recv(socket, [], timeout)
   end
 
