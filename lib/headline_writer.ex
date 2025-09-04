@@ -27,23 +27,23 @@ defmodule HeadlineWriter do
 
 
 
-  def write_headlines(input, output, directory) do
+  def write_headlines(options) do
     list_of_stories =
-      NewsFeeds.get_stories(input, @number_of_pages)
+      options[:feedstyle].get_stories(options, @number_of_pages)
 
     list_of_pages = Enum.zip(1..length(list_of_stories), list_of_stories)
 
-    [file, ext] = String.split(output, ".", parts: 2)
+    [file, ext] = String.split(options[:output], ".", parts: 2)
     ext = String.slice(ext, 0, 1) # First letter for the proper extension
 
     # Write each page to a separate file
     Enum.each(list_of_pages, fn page ->
       # Make a page element object
       {page_number, _} = page
-      peo = make_peo(output, page, @number_of_pages)
+      peo = make_peo(options[:output], page, @number_of_pages)
       peo_buffer = ObjectEncoder.encode(peo) |>
                    page_setup(page_number, @number_of_pages)
-      file_path = Path.join(directory, "#{file}.#{ext}_#{page_number}_8_1")
+      file_path = Path.join(options[:directory], "#{file}.#{ext}_#{page_number}_8_1")
       File.write!(file_path, peo_buffer)
       Logger.info("Written story to #{file_path}")
     end)
