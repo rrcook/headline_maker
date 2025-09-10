@@ -18,31 +18,40 @@ defmodule HeadlineWriter do
   use NaplpsConstants
   import NaplpsWriter
 
-
   @number_of_pages 4
 
   # TODO Add these constants to NaplpsConstants
   @text_width 6
   @text_height 10
 
-
+  @gemini_url "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+  @headline_length 60
 
   def write_headlines(options) do
-    list_of_stories =
+    list_of_long_stories =
       options[:feedstyle].get_stories(options, @number_of_pages)
+
+    list_of_stories = Enum.map(list_of_long_stories, fn [hl, body] ->
+      short_hl = summarize_text(hl, @headline_length)
+      [short_hl, body]
+    end)
 
     list_of_pages = Enum.zip(1..length(list_of_stories), list_of_stories)
 
     [file, ext] = String.split(options[:output], ".", parts: 2)
-    ext = String.slice(ext, 0, 1) # First letter for the proper extension
+    # First letter for the proper extension
+    ext = String.slice(ext, 0, 1)
 
     # Write each page to a separate file
     Enum.each(list_of_pages, fn page ->
       # Make a page element object
       {page_number, _} = page
       peo = make_peo(options[:output], page, @number_of_pages)
-      peo_buffer = ObjectEncoder.encode(peo) |>
-                   page_setup(page_number, @number_of_pages)
+
+      peo_buffer =
+        ObjectEncoder.encode(peo)
+        |> page_setup(page_number, @number_of_pages)
+
       file_path = Path.join(options[:directory], "#{file}.#{ext}_#{page_number}_8_1")
       File.write!(file_path, peo_buffer)
       Logger.info("Written story to #{file_path}")
@@ -69,26 +78,28 @@ defmodule HeadlineWriter do
   end
 
   def make_headline_naplps(page_number, headline, story, number_of_pages) do
-    buffer = gcu_init()
-    |> text_attributes({@text_width / 256, @text_height / 256})
-    |> select_color(@color_gray)
-    |> draw(@cmd_set_rect_outlined, [{0 / 256, 179 / 256}, {255 / 256, (-1 * (179 - 51)) / 256}])
-    |> draw(@cmd_set_rect_outlined, [{1 / 256, 178 / 256}, {253 / 256, (-1 * (178 - 52)) / 256}])
-    |> select_color(@color_black)
-    |> draw(@cmd_set_rect_filled, [{2 / 256, 177 / 256}, {251 / 256, (-1 * (178 - 53)) / 256}])
-#    |> draw(@cmd_set_rect_outlined, [{2 / 256, 177 / 256}, {253 / 256, (-1 * (177 - 53)) / 256}])
-    |> select_color(@color_gray)
-    # |> draw_text_abs(String.slice(headline, 0..39), {4 / 256, 168 / 256})
-    |> draw_text_abs(headline, {4 / 256, 168 / 256})
-    |> select_color(@color_white)
-    |> draw_text_abs(story, {4 / 256, 158 / 256})
+    buffer =
+      gcu_init()
+      |> text_attributes({@text_width / 256, @text_height / 256})
+      |> select_color(@color_gray)
+      |> draw(@cmd_set_rect_outlined, [{0 / 256, 179 / 256}, {255 / 256, -1 * (179 - 51) / 256}])
+      |> draw(@cmd_set_rect_outlined, [{1 / 256, 178 / 256}, {253 / 256, -1 * (178 - 52) / 256}])
+      |> select_color(@color_black)
+      |> draw(@cmd_set_rect_filled, [{2 / 256, 177 / 256}, {251 / 256, -1 * (178 - 53) / 256}])
+      #    |> draw(@cmd_set_rect_outlined, [{2 / 256, 177 / 256}, {253 / 256, (-1 * (177 - 53)) / 256}])
+      |> select_color(@color_gray)
+      # |> draw_text_abs(String.slice(headline, 0..39), {4 / 256, 168 / 256})
+      |> draw_text_abs(headline, {4 / 256, 168 / 256})
+      |> select_color(@color_white)
+      |> draw_text_abs(story, {4 / 256, 158 / 256})
 
     # If this is not a the last page, put up the [Next] button
     cond do
       page_number < number_of_pages ->
-      select_color(buffer, @color_gray)
-      |> draw_text_abs("Go to next page", {23 / 256, 55 / 256})
-      |> draw_text_abs("[NEXT]", {222 / 256, 55 / 256})
+        select_color(buffer, @color_gray)
+        |> draw_text_abs("Go to next page", {23 / 256, 55 / 256})
+        |> draw_text_abs("[NEXT]", {222 / 256, 55 / 256})
+
       true ->
         buffer
     end
@@ -118,5 +129,41 @@ defmodule HeadlineWriter do
       total_pages,
       rest::binary
     >>
+  end
+
+  def summarize_text(text, max_length) when is_binary(text) do
+    api_key = System.get_env("GEMINI_API_KEY")
+
+    try do
+      post_body = """
+      {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Summarize the text '#{text}' to #{max_length} characters "
+                }
+              ]
+            }
+          ]
+      }
+      """
+
+      headers = [
+        {"Content-Type", "application/json"},
+        {"X-goog-api-key", api_key}
+      ]
+
+      {:ok, response_json} = HTTPoison.post(@gemini_url, post_body, headers)
+
+      response_object = JSON.decode!(response_json.body)
+      candidates_map = response_object["candidates"] |> Enum.at(0)
+      text_map = candidates_map["content"]["parts"] |> Enum.at(0)
+      text_map["text"]
+    rescue
+      e in RuntimeError ->
+        Logger.error("Error summarizing text: #{e.message}")
+        text
+    end
   end
 end
