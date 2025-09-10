@@ -17,7 +17,7 @@ defmodule NewsFeeds do
   require Logger
 
   # @margin 60
-  @margin 45
+  @margin 50
   @newline "\r\n "
 
   @callback get_stories(options :: map(), number_of_pages :: non_neg_integer()) :: list(String.t())
