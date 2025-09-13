@@ -134,6 +134,8 @@ defmodule HeadlineWriter do
   def summarize_text(text, max_length) when is_binary(text) do
     api_key = System.get_env("GEMINI_API_KEY")
 
+    response_body = nil
+
     try do
       post_body = """
       {
@@ -154,15 +156,30 @@ defmodule HeadlineWriter do
         {"X-goog-api-key", api_key}
       ]
 
-      {:ok, response_json} = HTTPoison.post(@gemini_url, post_body, headers)
+      {:ok, response} = HTTPoison.post(@gemini_url, post_body, headers)
+      # IO.inspect(response.body, label: "Gemini response")
 
-      response_object = JSON.decode!(response_json.body)
-      candidates_map = response_object["candidates"] |> Enum.at(0)
-      text_map = candidates_map["content"]["parts"] |> Enum.at(0)
-      text_map["text"]
+      # Using explicit variables in each step to capture where things go wrong
+      # to put the correct key in the KeyError message
+      response_body = response.body
+      response_object = JSON.decode!(response_body)
+      candidates_list = Map.fetch!(response_object, "candidates")
+      candidates_map = Enum.at(candidates_list, 0)
+      content_map = Map.fetch!(candidates_map, "content")
+      parts_list = Map.fetch!(content_map, "parts")
+      text_map = Enum.at(parts_list, 0)
+      # text_map = candidates_map["content"]["parts"] |> Enum.at(0)
+      Map.fetch!(text_map, "text")
     rescue
-      e in RuntimeError ->
-        Logger.error("Error summarizing text: #{e.message}")
+      e in KeyError ->
+        Logger.error("KeyError, key #{e.key} not found in response")
+        IO.inspect(e.term, label: "Response body")
+        text
+      e  ->
+        Logger.error("Error summarizing text: #{Exception.message(e)}")
+        if (response_body != nil) do
+          Logger.error("Response body: #{response_body}")
+        end
         text
     end
   end
