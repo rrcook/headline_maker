@@ -162,7 +162,7 @@ defmodule HeadlineWriter do
       # Using explicit variables in each step to capture where things go wrong
       # to put the correct key in the KeyError message
       response_body = response.body
-      response_object = JSON.decode!(response_body)
+      response_object = :json.decode(response_body)
       candidates_list = Map.fetch!(response_object, "candidates")
       candidates_map = Enum.at(candidates_list, 0)
       content_map = Map.fetch!(candidates_map, "content")
