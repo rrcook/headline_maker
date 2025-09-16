@@ -28,9 +28,9 @@ defmodule MemeorandumFeed do
 
   @behaviour NewsFeeds
 
-  # Given a news feed XML in the memorandum family, send back an array
-  # of tuples, each item is {headline, story}.
-  # If we can't get the XML pulled down then return an empty array.
+  # Given a news feed XML in the memorandum family, send back a list
+  # of lists, each item is [headline, story].
+  # If we can't get the XML pulled down then return an empty list.
   @spec get_stories(any(), any()) :: list()
   def get_stories(options, number_of_pages) do
     try do
