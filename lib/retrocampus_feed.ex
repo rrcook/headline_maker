@@ -18,9 +18,8 @@ defmodule RetroCampusFeed do
 
   @behaviour NewsFeeds
 
-  # Given a news feed XML in the memorandum family, send back an array
-  # of tuples, each item is {headline, story}.
-  # If we can't get the XML pulled down then return an empty array.
+  # Uses the retrocampus BBS to get stories
+  # Uses telnet to get stories
   @spec get_stories(any(), any()) :: list()
   def get_stories(options, _number_of_pages) do
     socket = nil
