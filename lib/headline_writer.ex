@@ -20,6 +20,8 @@ defmodule HeadlineWriter do
 
   @number_of_pages 4
 
+  @debug_delimiter "////////"
+
   # TODO Add these constants to NaplpsConstants
   @text_width 6
   @text_height 10
@@ -27,16 +29,34 @@ defmodule HeadlineWriter do
   @gemini_url "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
   @headline_length 60
 
+  # Makes the debug delimiter available to other modules
+  def debug_delimiter(), do: @debug_delimiter
+
   def write_headlines(options) do
     list_of_long_stories =
       options[:feedstyle].get_stories(options, @number_of_pages)
 
-    list_of_stories = Enum.map(list_of_long_stories, fn [hl, body] ->
-      short_hl = summarize_text(hl, @headline_length)
-      [short_hl, body]
-    end)
+    list_of_stories =
+      if options[:debuginput] != nil do
+        Logger.info("Using debug input from #{options[:debuginput]}, not summarizing headlines")
+        list_of_long_stories
+      else
+        Enum.map(list_of_long_stories, fn [hl, body] ->
+          short_hl = summarize_text(hl, @headline_length)
+          [short_hl, body]
+        end)
+      end
 
     list_of_pages = Enum.zip(1..length(list_of_stories), list_of_stories)
+
+    if options[:debugoutput] do
+      Enum.each(list_of_pages, fn {page_number, [headline, story]} ->
+        debug_file = Path.join(options[:debugoutput], "hmdebug_#{page_number}")
+        IO.inspect(debug_file, label: "Debug file")
+        File.write!(debug_file, "#{headline}#{@debug_delimiter}#{story}")
+        Logger.info("Written debug text to #{debug_file}")
+      end)
+    end
 
     [file, ext] = String.split(options[:output], ".", parts: 2)
     # First letter for the proper extension
@@ -175,11 +195,14 @@ defmodule HeadlineWriter do
         Logger.error("KeyError, key #{e.key} not found in response")
         IO.inspect(e.term, label: "Response body")
         text
-      e  ->
+
+      e ->
         Logger.error("Error summarizing text: #{Exception.message(e)}")
-        if (response_body != nil) do
+
+        if response_body != nil do
           Logger.error("Response body: #{response_body}")
         end
+
         text
     end
   end

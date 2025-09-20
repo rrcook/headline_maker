@@ -23,8 +23,11 @@ defmodule HeadlineMaker do
           directory: :string,
           help: :boolean,
           feedstyle: :string,
-          retroguide: :string
+          retroguide: :string,
+          debugoutput: :string,
+          debuginput: :string
         ],
+        # Deliberatly not using shortcuts for debug options
         aliases: [i: :input, o: :output, d: :directory, h: :help, f: :feedstyle, r: :retroguide]
       )
 
@@ -38,6 +41,8 @@ defmodule HeadlineMaker do
         output = opts[:output] || "NH00A000.BDY"
         directory = opts[:directory] || "."
         retroguide = opts[:retroguide] || "511-1234"
+        debugoutput = opts[:debugoutput]
+        debuginput = opts[:debuginput]
 
         feedstyle =
           case opts[:feedstyle] do
@@ -45,12 +50,17 @@ defmodule HeadlineMaker do
             style -> String.to_atom("Elixir." <> style)
           end
 
+        # Override feedstyle if debuginput is specified
+        feedstyle = if debuginput != nil, do: DebugFeed, else: feedstyle
+
         options = %{
           input: input,
           output: output,
           directory: directory,
           feedstyle: feedstyle,
-          retroguide: retroguide
+          retroguide: retroguide,
+          debugoutput: debugoutput,
+          debuginput: debuginput
         }
 
         IO.puts(
