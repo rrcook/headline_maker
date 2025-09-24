@@ -18,14 +18,6 @@ defmodule MemeorandumFeed do
 
   @number_of_feeds 10
 
-  @utf_replace_map %{
-    <<0xE2, 0x80, 0x98>> => "\'",
-    <<0xE2, 0x80, 0x99>> => "\'",
-    <<0xE2, 0x80, 0x9C>> => "\"",
-    <<0xE2, 0x80, 0x9D>> => "\"",
-    <<0xE2, 0x80, 0xA6>> => "..."
-  }
-
   @behaviour NewsFeeds
 
   # Given a news feed XML in the memorandum family, send back a list
@@ -61,16 +53,17 @@ defmodule MemeorandumFeed do
         s
         |> Readability.article()
         |> Readability.readable_text()
-        |> String.replace(Map.keys(@utf_replace_map), fn pat -> @utf_replace_map[pat] end)
+        |> NewsFeeds.replace_utf_chars()
         |> String.split("\n", parts: 2)
         |> Enum.at(1)
         # that's an emdash
         |> String.split("—", parts: 2)
         |> Enum.map(&String.trim/1)
+        # Replace emdash with regular dash
+        |> Enum.map(&String.replace(&1, "—", "-"))
       end)
       |> Enum.filter(fn l -> length(l) == 2 end)
       |> Enum.take(number_of_catches)
-      |> Enum.map(fn article -> NewsFeeds.break_on_margin(article) end)
     rescue
       # If we can't get the request just return an empty list
       e ->
