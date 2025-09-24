@@ -98,6 +98,9 @@ defmodule HeadlineWriter do
   end
 
   def make_headline_naplps(page_number, headline, story, number_of_pages) do
+    headline = String.replace(headline, "\r\n", " ")
+    story = String.replace(story, "\r\n", " ")
+
     buffer =
       gcu_init()
       |> text_attributes({@text_width / 256, @text_height / 256})
@@ -106,22 +109,29 @@ defmodule HeadlineWriter do
       |> draw(@cmd_set_rect_outlined, [{1 / 256, 178 / 256}, {253 / 256, -1 * (178 - 52) / 256}])
       |> select_color(@color_black)
       |> draw(@cmd_set_rect_filled, [{2 / 256, 177 / 256}, {251 / 256, -1 * (178 - 53) / 256}])
+      |> then(fn b -> setup_next(b, page_number, number_of_pages) end)
+      |> draw(@cmd_field, [{4 / 256, 177 / 256}, {251 / 256, -1 * (178 - 53) / 256}])
       #    |> draw(@cmd_set_rect_outlined, [{2 / 256, 177 / 256}, {253 / 256, (-1 * (177 - 53)) / 256}])
+      |> append_byte(@gr_word_wrap_on)
+      # Headline color and position, can word wrap to next line
       |> select_color(@color_gray)
-      # |> draw_text_abs(String.slice(headline, 0..39), {4 / 256, 168 / 256})
-      |> draw_text_abs(headline, {4 / 256, 168 / 256})
+      |> draw_text_abs(headline, {4 / 256, 167 / 256})
+      # Story color and position, can word wrap in the rest of the field
       |> select_color(@color_white)
-      |> draw_text_abs(story, {4 / 256, 158 / 256})
+      |> draw_text_abs(story, {4 / 256, 147 / 256})
+      |> append_byte(@gr_word_wrap_off)
 
-    # If this is not a the last page, put up the [Next] button
-    cond do
-      page_number < number_of_pages ->
-        select_color(buffer, @color_gray)
-        |> draw_text_abs("Go to next page", {23 / 256, 55 / 256})
-        |> draw_text_abs("[NEXT]", {222 / 256, 55 / 256})
+   buffer
+  end
 
-      true ->
-        buffer
+  # If this is not the last page, put up the [Next] button
+  defp setup_next(buffer, page_number, number_of_pages) do
+    if page_number < number_of_pages do
+      select_color(buffer, @color_gray)
+      |> draw_text_abs("Go to next page", {23 / 256, 55 / 256})
+      |> draw_text_abs("[NEXT]", {222 / 256, 55 / 256})
+    else
+      buffer
     end
   end
 
