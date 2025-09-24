@@ -41,7 +41,6 @@ defmodule RetroCampusFeed do
 
       TelnetClient.close(socket)
       Enum.map(raw_stories, fn rs -> carve_story(rs) end)
-      |> Enum.map(fn article -> NewsFeeds.break_on_margin(article) end)
 
     rescue
       # If we can't get the request just return an empty list
