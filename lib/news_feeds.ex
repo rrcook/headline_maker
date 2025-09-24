@@ -16,43 +16,28 @@ defmodule NewsFeeds do
 
   require Logger
 
-  # @margin 60
-  @margin 50
-  @newline "\r\n "
-
   @callback get_stories(options :: map(), number_of_pages :: non_neg_integer()) :: list(String.t())
 
-  @spec break_on_margin([binary(), ...], any()) :: [binary(), ...]
-  def break_on_margin([hl, body], margin \\ @margin) do
-    hl_lines = break_text_on_margin(hl, margin)
-    body_lines = break_text_on_margin(body, margin)
-    [hl_lines, @newline <> body_lines]
+    @utf_replace_map %{
+    <<0xE2, 0x80, 0x98>> => "\'",
+    <<0xE2, 0x80, 0x99>> => "\'",
+    <<0xE2, 0x80, 0x9C>> => "\"",
+    <<0xE2, 0x80, 0x9D>> => "\"",
+    <<0xE2, 0x80, 0xA6>> => "...",
+    #emdash to regular dash
+    # "—" => "-",
+    "é" => "e"
+  }
+
+  @utf_keys Map.keys(@utf_replace_map)
+
+  @spec utf_replace_map() :: %{optional(<<_::16, _::_*8>>) => <<_::8, _::_*16>>}
+  def utf_replace_map(), do: @utf_replace_map
+
+  @spec replace_utf_chars(binary()) :: binary()
+  def replace_utf_chars(text) do
+    Logger.debug("Replacing UTF chars in #{text}")
+    String.replace(text, @utf_keys, fn pat -> @utf_replace_map[pat] end)
   end
 
-  defp break_text_on_margin(text, margin) do
-    # current_line = []
-    # Split the input text into words using regular expression
-    words = String.split(text, ~r/\s+/u)
-
-    {lines, current_line} =
-      Enum.reduce(words, {[], []}, fn word, {lines, current_line} ->
-        if length(current_line) == 0 do
-          {lines, [word]}
-        else
-          line_length = String.length(Enum.join(current_line, " ")) + 1 + String.length(word)
-
-          if line_length <= margin do
-            {lines, current_line ++ [word]}
-          else
-            {lines ++ [Enum.join(current_line, " ")], [word]}
-          end
-        end
-      end)
-
-    if length(current_line) > 0 do
-      Enum.join(lines ++ [Enum.join(current_line, " ")], @newline)
-    else
-      Enum.join(lines, @newline)
-    end
-  end
 end
