@@ -1,21 +1,45 @@
-# HeadlineMaker
+# Headline Maker 
 
-**TODO: Add description**
+Headline Maker is a command-line program to collect news stories and prepare them for publishing in the Prodigy Service client application.
+It uses news stories to make a headline and story, then creates Prodigy object files that is put in the Prodigy Reloaded database to be served by the Prodigy Reloaded server.
 
-## Installation
+Different news services are picked with "pluggable" built-in news gathering libraries. 
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `headline_maker` to your list of dependencies in `mix.exs`:
+## Usage
 
-```elixir
-def deps do
-  [
-    {:headline_maker, "~> 0.1.0"}
-  ]
-end
+```sh
+headline_maker [options]
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/headline_maker>.
+## Options
 
+| Option                | Alias | Type    | Description                                                                                  |
+|-----------------------|-------|---------|----------------------------------------------------------------------------------------------|
+| `--input`             | `-i`  | string  | Input file or URL for the news feed. Default: `https://memeorandum.com/feed.xml`              |
+| `--output`            | `-o`  | string  | Output file name. Default: `NH00A000.BDY`                                                    |
+| `--directory`         | `-d`  | string  | Output directory. Default: `.`                                                               |
+| `--help`              | `-h`  | boolean | Show help message and exit.                                                                  |
+| `--feedstyle`         | `-f`  | string  | Feed style module name (without `Elixir.` prefix). Default: `MemeorandumFeed`                |
+| `--retroguide`        | `-r`  | string  | Retroguide identifier. Default: `511-1234`                                                   |
+| `--debugoutput`       |       | string  | Debug output file (no alias).                                                                |
+| `--debuginput`        |       | string  | Debug input file (no alias). If specified, overrides feedstyle with `DebugFeed`.             |
+
+## Example
+
+```sh
+headline_maker --input "https://example.com/feed.xml" --output "output.bdy" --directory "/tmp" --feedstyle "CustomFeed" --retroguide "123-4567"
+```
+
+## Help
+
+To display the help message, use:
+
+```sh
+headline_maker --help
+```
+
+## Notes
+
+- All options except `--help` have sensible defaults.
+- Debug options do not have short aliases.
+- If `--debuginput` is specified, the feed style is overridden to use `DebugFeed`.
