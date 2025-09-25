@@ -36,7 +36,6 @@ defmodule NewsFeeds do
 
   @spec replace_utf_chars(binary()) :: binary()
   def replace_utf_chars(text) do
-    Logger.debug("Replacing UTF chars in #{text}")
     String.replace(text, @utf_keys, fn pat -> @utf_replace_map[pat] end)
   end
 
