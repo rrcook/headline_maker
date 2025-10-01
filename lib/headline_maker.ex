@@ -25,10 +25,11 @@ defmodule HeadlineMaker do
           feedstyle: :string,
           retroguide: :string,
           debugoutput: :string,
-          debuginput: :string
+          debuginput: :string,
+          attribution: :string
         ],
         # Deliberatly not using shortcuts for debug options
-        aliases: [i: :input, o: :output, d: :directory, h: :help, f: :feedstyle, r: :retroguide]
+        aliases: [i: :input, o: :output, d: :directory, h: :help, f: :feedstyle, r: :retroguide, a: :attribution]
       )
 
     cond do
@@ -43,6 +44,7 @@ defmodule HeadlineMaker do
         retroguide = opts[:retroguide] || "511-1234"
         debugoutput = opts[:debugoutput]
         debuginput = opts[:debuginput]
+        attribution = opts[:attribution]
 
         feedstyle =
           case opts[:feedstyle] do
@@ -60,7 +62,8 @@ defmodule HeadlineMaker do
           feedstyle: feedstyle,
           retroguide: retroguide,
           debugoutput: debugoutput,
-          debuginput: debuginput
+          debuginput: debuginput,
+          attribution: attribution
         }
 
         IO.puts(
