@@ -15,19 +15,20 @@ headline_maker [options]
 
 | Option                | Alias | Type    | Description                                                                                  |
 |-----------------------|-------|---------|----------------------------------------------------------------------------------------------|
-| `--input`             | `-i`  | string  | Input file or URL for the news feed. Default: `https://memeorandum.com/feed.xml`              |
+| `--input`             | `-i`  | string  | Input file or URL for the news feed. Default: `https://memeorandum.com/feed.xml`             |
 | `--output`            | `-o`  | string  | Output file name. Default: `NH00A000.BDY`                                                    |
 | `--directory`         | `-d`  | string  | Output directory. Default: `.`                                                               |
+| `--attribution`       | `-a`  | string  | Adds the attribution string to the end of a story's headline.                                |
 | `--help`              | `-h`  | boolean | Show help message and exit.                                                                  |
 | `--feedstyle`         | `-f`  | string  | Feed style module name (without `Elixir.` prefix). Default: `MemeorandumFeed`                |
-| `--retroguide`        | `-r`  | string  | Retroguide identifier. Default: `511-1234`                                                   |
+| `--retroguide`        | `-r`  | string  | Telnet guide string for RetroCampusFeed feed style. Default: `511-1234`                      |
 | `--debugoutput`       |       | string  | Debug output file (no alias).                                                                |
 | `--debuginput`        |       | string  | Debug input file (no alias). If specified, overrides feedstyle with `DebugFeed`.             |
 
 ## Example
 
 ```sh
-headline_maker --input "https://example.com/feed.xml" --output "output.bdy" --directory "/tmp" --feedstyle "CustomFeed" --retroguide "123-4567"
+./headline_maker -i https://memeorandum.com/feed.xml -d /tmp/headlines -o NH00A000.BDY
 ```
 
 ## Help
@@ -42,4 +43,4 @@ headline_maker --help
 
 - All options except `--help` have sensible defaults.
 - Debug options do not have short aliases.
-- If `--debuginput` is specified, the feed style is overridden to use `DebugFeed`.
+- If `--debuginput` is specified, the feed style is overridden to use `DebugFeed`, which just reads in the files from the debuginput directory.
