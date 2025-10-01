@@ -38,12 +38,12 @@ defmodule HeadlineWriter do
 
     list_of_stories =
       if options[:debuginput] != nil do
-        Logger.info("Using debug input from #{options[:debuginput]}, not summarizing headlines")
+        Logger.info("Using debug input from #{options[:debuginput]}")
         list_of_long_stories
       else
         Enum.map(list_of_long_stories, fn [hl, body] ->
           short_hl = summarize_text(hl, @headline_length)
-          [short_hl, body]
+          [String.trim(short_hl) <> to_string(options[:attribution]), body]
         end)
       end
 
