@@ -76,15 +76,21 @@ defmodule RetroCampusFeed do
     TelnetClient.send(socket, <<ch, 13>>)
     {:ok, buffer} = TelnetClient.receive(socket)
     Logger.info("Sent #{<<ch>>}, Received #{String.length(buffer)} bytes")
+    Logger.debug("Gathered buffer content: #{buffer}")
+    if (byte_size(buffer) < 100) do
+      Logger.info("Problematic buffer content: #{buffer}")
+    end
 
     TelnetClient.send(socket, ".")
-    {:ok, _} = TelnetClient.receive(socket)
-
+    {:ok, discard} = TelnetClient.receive(socket)
+    Logger.debug("Sent '.', Received discard #{discard}")
+    Process.sleep(500) # Give the server a moment to get in the next menu
     gather_stories(t, true, socket, [buffer | acc])
   end
 
   # Carve out the headline and story from the raw text
   def carve_story(raw_story) do
+    Logger.debug("Carving story from raw text of #{raw_story}")
     one_line = String.replace(raw_story, ~r/\r\n/, " ")
     start = Regex.split(~r/  /, String.trim_leading(one_line), parts: 2) |> Enum.at(1)
     [headline, raw_body] = Regex.split(~r/-------------------------------------------------------------------------------/, start, parts: 2)
