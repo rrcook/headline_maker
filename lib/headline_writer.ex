@@ -26,7 +26,7 @@ defmodule HeadlineWriter do
   @text_width 6
   @text_height 10
 
-  @gemini_url "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+  @gemini_url "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
   @headline_length 60
 
   # Makes the debug delimiter available to other modules
