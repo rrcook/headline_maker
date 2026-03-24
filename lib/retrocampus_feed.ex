@@ -95,7 +95,8 @@ defmodule RetroCampusFeed do
     start = Regex.split(~r/  /, String.trim_leading(one_line), parts: 2) |> Enum.at(1)
     [headline, raw_body] = Regex.split(~r/-------------------------------------------------------------------------------/, start, parts: 2)
     line_1 = Regex.split(~r/ /, String.trim_leading(raw_body), parts: 3)
-    paragraph_1 = Regex.split(~r/  /, Enum.at(line_1, 2), parts: 2) |> Enum.at(0)
-    [headline, paragraph_1]
+    paragraphs = Regex.split(~r/  /, Enum.at(line_1, 2), parts: 3)
+    [paragraph_1, paragraph_2 | _] = paragraphs
+    [headline, paragraph_1 <> " " <> paragraph_2]
   end
 end
