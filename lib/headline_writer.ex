@@ -28,6 +28,7 @@ defmodule HeadlineWriter do
 
   @gemini_url "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
   @headline_length 60
+  @body_length 180
 
   # Makes the debug delimiter available to other modules
   def debug_delimiter(), do: @debug_delimiter
@@ -43,7 +44,8 @@ defmodule HeadlineWriter do
       else
         Enum.map(list_of_long_stories, fn [hl, body] ->
           short_hl = summarize_text(hl, @headline_length)
-          [String.trim(short_hl) <> to_string(options[:attribution]), body]
+          short_body = summarize_text(body, @body_length)
+          [String.trim(short_hl) <> to_string(options[:attribution]), short_body]
         end)
       end
 
@@ -161,8 +163,15 @@ defmodule HeadlineWriter do
     >>
   end
 
+  def summarize_text(text, max_length) when is_binary(text) and byte_size(text) <= max_length do
+    Logger.info("Text is already within the maximum length of #{max_length} characters, skipping summarization.")
+  end
+
   def summarize_text(text, max_length) when is_binary(text) do
     api_key = System.get_env("GEMINI_API_KEY")
+
+    escaped_text = String.replace(text, "\"", "\\\"")
+    Logger.info("Summarizing text #{text} to #{max_length} characters)")
 
     response_body = nil
 
@@ -173,7 +182,7 @@ defmodule HeadlineWriter do
             {
               "parts": [
                 {
-                  "text": "Summarize the text '#{text}' to #{max_length} characters "
+                  "text": "Summarize the text '#{escaped_text}' to #{max_length} characters "
                 }
               ]
             }
