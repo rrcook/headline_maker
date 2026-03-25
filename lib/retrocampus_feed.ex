@@ -80,6 +80,7 @@ defmodule RetroCampusFeed do
     if (byte_size(buffer) < 100) do
       Logger.info("Problematic buffer content: #{buffer}")
     end
+    Process.sleep(500)
 
     TelnetClient.send(socket, ".")
     {:ok, discard} = TelnetClient.receive(socket)
