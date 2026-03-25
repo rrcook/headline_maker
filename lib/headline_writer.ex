@@ -18,6 +18,9 @@ defmodule HeadlineWriter do
   use NaplpsConstants
   import NaplpsWriter
 
+  @ollama_url "http://rrc-x15.local:11434/api/generate"
+  @model "llama3.1:8b"
+
   @number_of_pages 4
 
   @debug_delimiter "////////"
@@ -28,7 +31,7 @@ defmodule HeadlineWriter do
 
   @gemini_url "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
   @headline_length 60
-  @body_length 180
+  @body_length 300
 
   # Makes the debug delimiter available to other modules
   def debug_delimiter(), do: @debug_delimiter
@@ -43,9 +46,15 @@ defmodule HeadlineWriter do
         list_of_long_stories
       else
         Enum.map(list_of_long_stories, fn [hl, body] ->
-          short_hl = summarize_text(hl, @headline_length)
-          short_body = summarize_text(body, @body_length)
-          [String.trim(short_hl) <> to_string(options[:attribution]), short_body]
+          result_hl = case summarize_text(hl, @headline_length) do
+            {:ok, short_hl} -> short_hl
+            {:error, _} -> hl
+          end
+          result_body = case summarize_text(body, @body_length) do
+            {:ok, short_body} -> short_body
+            {:error, _} -> body
+          end
+          [String.trim(result_hl) <> to_string(options[:attribution]), result_body]
         end)
       end
 
@@ -123,7 +132,7 @@ defmodule HeadlineWriter do
       |> draw_text_abs(story, {4 / 256, 147 / 256})
       |> append_byte(@gr_word_wrap_off)
 
-   buffer
+    buffer
   end
 
   # If this is not the last page, put up the [Next] button
@@ -164,10 +173,51 @@ defmodule HeadlineWriter do
   end
 
   def summarize_text(text, max_length) when is_binary(text) and byte_size(text) <= max_length do
-    Logger.info("Text is already within the maximum length of #{max_length} characters, skipping summarization.")
+    Logger.info(
+      "Text is already within the maximum length of #{max_length} characters, skipping summarization."
+    )
+    {:ok, text}
   end
 
   def summarize_text(text, max_length) when is_binary(text) do
+    escaped_text = String.replace(text, "\"", "\\\"")
+    Logger.info("Summarizing text #{escaped_text} to #{max_length} characters)")
+
+    prompt_text = "Summarize the text #{escaped_text} to a maximum of #{max_length} characters"
+
+    prompt_result = prompt(prompt_text)
+
+    case prompt_result do
+      {:ok, response} ->
+        IO.puts("Response: #{response}")
+
+      {:error, reason} ->
+        IO.puts("Error: #{reason}")
+    end
+    prompt_result
+  end
+
+  def prompt(text) do
+    body = %{
+      model: @model,
+      prompt: text,
+      stream: false,
+      receive_timeout: 300_000
+    }
+
+    case Req.post(@ollama_url, json: body) do
+      {:ok, %{status: 200, body: %{"response" => response}}} ->
+        {:ok, response}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "HTTP #{status}: #{inspect(body)}"}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def summarize_textx(text, max_length) when is_binary(text) do
     api_key = System.get_env("GEMINI_API_KEY")
 
     escaped_text = String.replace(text, "\"", "\\\"")

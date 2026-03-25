@@ -22,6 +22,7 @@ defmodule HeadlineMaker.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:req, "~> 0.5"},
       {:httpoison, "~> 1.8.2"},
       {:quinn, "~> 1.1.3"},
       {:readability2, git: "https://github.com/rrcook/readability2"},
