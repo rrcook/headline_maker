@@ -18,7 +18,7 @@ defmodule HeadlineWriter do
   use NaplpsConstants
   import NaplpsWriter
 
-  @ollama_url "http://rrc-x15.local:11434/api/generate"
+  @ollama_url "http://localhost:11434/api/generate"
   @model "llama3.1:8b"
 
   @number_of_pages 4
@@ -29,12 +29,48 @@ defmodule HeadlineWriter do
   @text_width 6
   @text_height 10
 
-  @gemini_url "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
-  @headline_length 60
-  @body_length 300
+  @headline_length 100
+  @body_length 450
 
   # Makes the debug delimiter available to other modules
   def debug_delimiter(), do: @debug_delimiter
+
+  @spec dequote(binary()) :: binary()
+  def dequote(text) do
+    cond do
+      String.at(text, 0) == "\"" and String.at(text, -1) == "\"" ->
+        String.slice(text, 1, String.length(text) - 2)
+      true ->
+        text
+    end
+  end
+
+  def news_trim(text, max_length) do
+    if String.length(text) > max_length do
+      String.slice(text, 0, max_length - 3) <> "..."
+    else
+      text
+    end
+  end
+
+  def choose_summary(original_text, {:error, reason}, summary_length) do
+    Logger.error("Error summarizing text: #{inspect(reason)}. Using original text.")
+    news_trim(original_text, summary_length)
+  end
+
+  def choose_summary(original_text, {:ok, summary_text}, summary_length) do
+    # sometimes the llm puts quotes around the summary, so we want to dequote it if that's the case
+    dq_summary = dequote(summary_text)
+    return_text = if String.length(dq_summary) <= summary_length do
+      dq_summary
+    else
+      Logger.info(
+        "Summary is still too long after dequoting, using original text. Original length: #{String.length(original_text)}, Summary length: #{String.length(dq_summary)}, Max length: #{summary_length}"
+      )
+      original_text
+    end
+    news_trim(return_text, summary_length)
+  end
 
   def write_headlines(options) do
     list_of_long_stories =
@@ -46,14 +82,16 @@ defmodule HeadlineWriter do
         list_of_long_stories
       else
         Enum.map(list_of_long_stories, fn [hl, body] ->
-          result_hl = case summarize_text(hl, @headline_length) do
-            {:ok, short_hl} -> short_hl
-            {:error, _} -> hl
-          end
-          result_body = case summarize_text(body, @body_length) do
-            {:ok, short_body} -> short_body
-            {:error, _} -> body
-          end
+          # result_hl = (case summarize_text(hl, @headline_length) do
+          #   {:ok, short_hl} -> short_hl |> dequote()
+          #   {:error, _} -> hl
+          # end) |> news_trim(@headline_length)
+          result_hl = choose_summary(hl, summarize_text(hl, @headline_length), @headline_length)
+          # result_body = (case summarize_text(body, @body_length) do
+          #   {:ok, short_body} -> short_body |> dequote()
+          #   {:error, _} -> body
+          # end) |> news_trim(@body_length)
+          result_body = choose_summary(body, summarize_text(body, @body_length), @body_length)
           [String.trim(result_hl) <> to_string(options[:attribution]), result_body]
         end)
       end
@@ -183,7 +221,7 @@ defmodule HeadlineWriter do
     escaped_text = String.replace(text, "\"", "\\\"")
     Logger.info("Summarizing text #{escaped_text} to #{max_length} characters)")
 
-    prompt_text = "Summarize the text #{escaped_text} to a maximum of #{max_length} characters"
+    prompt_text = "Summarize the text #{escaped_text} close to a maximum of #{max_length} characters, keeping as much of the original meaning as possible. Do not add ellipses or other indicators of truncation."
 
     prompt_result = prompt(prompt_text)
 
@@ -192,7 +230,7 @@ defmodule HeadlineWriter do
         IO.puts("Response: #{response}")
 
       {:error, reason} ->
-        IO.puts("Error: #{reason}")
+        IO.puts("Error: #{inspect(reason)}")
     end
     prompt_result
   end
@@ -202,7 +240,7 @@ defmodule HeadlineWriter do
       model: @model,
       prompt: text,
       stream: false,
-      receive_timeout: 300_000
+      receive_timeout: 900_000
     }
 
     case Req.post(@ollama_url, json: body) do
@@ -214,65 +252,6 @@ defmodule HeadlineWriter do
 
       {:error, reason} ->
         {:error, reason}
-    end
-  end
-
-  def summarize_textx(text, max_length) when is_binary(text) do
-    api_key = System.get_env("GEMINI_API_KEY")
-
-    escaped_text = String.replace(text, "\"", "\\\"")
-    Logger.info("Summarizing text #{text} to #{max_length} characters)")
-
-    response_body = nil
-
-    try do
-      post_body = """
-      {
-          "contents": [
-            {
-              "parts": [
-                {
-                  "text": "Summarize the text '#{escaped_text}' to #{max_length} characters "
-                }
-              ]
-            }
-          ]
-      }
-      """
-
-      headers = [
-        {"Content-Type", "application/json"},
-        {"X-goog-api-key", api_key}
-      ]
-
-      {:ok, response} = HTTPoison.post(@gemini_url, post_body, headers)
-      # IO.inspect(response.body, label: "Gemini response")
-
-      # Using explicit variables in each step to capture where things go wrong
-      # to put the correct key in the KeyError message
-      response_body = response.body
-      response_object = :json.decode(response_body)
-      candidates_list = Map.fetch!(response_object, "candidates")
-      candidates_map = Enum.at(candidates_list, 0)
-      content_map = Map.fetch!(candidates_map, "content")
-      parts_list = Map.fetch!(content_map, "parts")
-      text_map = Enum.at(parts_list, 0)
-      # text_map = candidates_map["content"]["parts"] |> Enum.at(0)
-      Map.fetch!(text_map, "text")
-    rescue
-      e in KeyError ->
-        Logger.error("KeyError, key #{e.key} not found in response")
-        IO.inspect(e.term, label: "Response body")
-        text
-
-      e ->
-        Logger.error("Error summarizing text: #{Exception.message(e)}")
-
-        if response_body != nil do
-          Logger.error("Response body: #{response_body}")
-        end
-
-        text
     end
   end
 end
