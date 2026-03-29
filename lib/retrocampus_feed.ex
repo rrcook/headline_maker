@@ -18,6 +18,13 @@ defmodule RetroCampusFeed do
 
   @behaviour NewsFeeds
 
+  # @pre_discard_pattern [".=EXIT"]
+  @post_discard_pattern ["(.)Quit> "]
+
+  # @story_trim "-PAGE 1-  SPACE=NEXT  -=PREV  .=EXIT"
+
+  @telnet_port 23
+
   # Uses the retrocampus BBS to get stories
   # Uses telnet to get stories
   @spec get_stories(any(), any()) :: list()
@@ -25,12 +32,11 @@ defmodule RetroCampusFeed do
     socket = nil
     try do
       retroguide = options[:retroguide]
-      input = options[:input]
 
       # Use a charlist for pattern matching
       retroguide_charlist = String.to_charlist(retroguide)
 
-      {:ok, s} = TelnetClient.open(input)
+      {:ok, s} = TelnetClient.open(options[:input], @telnet_port)
       socket = s
 
       # Toss the initial login prompt
@@ -82,10 +88,13 @@ defmodule RetroCampusFeed do
     end
     Process.sleep(500)
 
-    TelnetClient.send(socket, ".")
-    {:ok, discard} = TelnetClient.receive(socket)
-    Logger.debug("Sent '.', Received discard #{discard}")
-    Process.sleep(500) # Give the server a moment to get in the next menu
+    if String.contains?(buffer, @post_discard_pattern) do
+      Logger.info("Discard pattern found in buffer, skipping discard step")
+    else
+      TelnetClient.send(socket, ".")
+      result = TelnetClient.expect(socket, @post_discard_pattern)
+      Logger.debug("Sent '.', Expect result is #{inspect(result)}")
+    end
     gather_stories(t, true, socket, [buffer | acc])
   end
 
@@ -95,9 +104,15 @@ defmodule RetroCampusFeed do
     one_line = String.replace(raw_story, ~r/\r\n/, " ")
     start = Regex.split(~r/  /, String.trim_leading(one_line), parts: 2) |> Enum.at(1)
     [headline, raw_body] = Regex.split(~r/-------------------------------------------------------------------------------/, start, parts: 2)
+    # [headline, String.replace(raw_body, @story_trim, "") |> String.trim()]
+    # line_1 = Regex.split(~r/ /, String.trim_leading(raw_body), parts: 3)
+    # paragraphs = Regex.split(~r/  /, Enum.at(line_1, 2), parts: 3)
+    # [paragraph_1, paragraph_2 | _] = paragraphs
+    # [headline, paragraph_1 <> " " <> paragraph_2]
+
     line_1 = Regex.split(~r/ /, String.trim_leading(raw_body), parts: 3)
-    paragraphs = Regex.split(~r/  /, Enum.at(line_1, 2), parts: 3)
-    [paragraph_1, paragraph_2 | _] = paragraphs
-    [headline, paragraph_1 <> " " <> paragraph_2]
+    paragraphs = Regex.split(~r/  /, Enum.at(line_1, 2))
+    # [paragraph_1, paragraph_2 | _] = paragraphs
+    [headline, Enum.take(paragraphs, 3) |> Enum.join(" ")]
   end
 end
