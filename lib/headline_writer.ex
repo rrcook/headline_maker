@@ -18,7 +18,8 @@ defmodule HeadlineWriter do
   use NaplpsConstants
   import NaplpsWriter
 
-  @ollama_url "http://localhost:11434/api/generate"
+  @ollama_host "http://localhost:11434"
+  @ollama_post "/api/generate"
   @model "llama3.1:8b"
 
   @number_of_pages 4
@@ -29,7 +30,7 @@ defmodule HeadlineWriter do
   @text_width 6
   @text_height 10
 
-  @headline_length 100
+  @headline_length 90
   @body_length 450
 
   # Makes the debug delimiter available to other modules
@@ -239,11 +240,13 @@ defmodule HeadlineWriter do
     body = %{
       model: @model,
       prompt: text,
-      stream: false,
-      receive_timeout: 900_000
+      stream: false
     }
 
-    case Req.post(@ollama_url, json: body) do
+    host = System.get_env("OLLAMA_HOST") || @ollama_host
+    url = host <> @ollama_post
+
+    case Req.post(url, json: body, receive_timeout: 120_000) do
       {:ok, %{status: 200, body: %{"response" => response}}} ->
         {:ok, response}
 
