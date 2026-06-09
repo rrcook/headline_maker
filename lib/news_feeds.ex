@@ -14,8 +14,6 @@ defmodule NewsFeeds do
   # You should have received a copy of the GNU Affero General Public License along with Prodigy Reloaded. If not,
   # see <https://www.gnu.org/licenses/>.
 
-  require Logger
-
   @callback get_stories(options :: map(), number_of_pages :: non_neg_integer()) :: list(String.t())
 
     @utf_replace_map %{
@@ -24,6 +22,7 @@ defmodule NewsFeeds do
     <<0xE2, 0x80, 0x9C>> => "\"",
     <<0xE2, 0x80, 0x9D>> => "\"",
     <<0xE2, 0x80, 0xA6>> => "...",
+    <<0xC2, 0xA0>> => " ",
     #emdash to regular dash
     # "—" => "-",
     "é" => "e"
