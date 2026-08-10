@@ -25,7 +25,7 @@ defmodule HeadlineMaker.MixProject do
       {:req, "~> 0.5"},
       {:httpoison, "~> 1.8.2"},
       {:quinn, "~> 1.1.3"},
-      {:readability2, git: "https://github.com/rrcook/readability2"},
+      {:floki, "~> 0.36"},
       {:prodigy_objects, git: "https://github.com/rrcook/prodigy_objects.git"},
       {:naplps_writer, git: "https://github.com/rrcook/naplps_writer.git"}
     ]
