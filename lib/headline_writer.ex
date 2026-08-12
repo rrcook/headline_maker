@@ -220,18 +220,19 @@ defmodule HeadlineWriter do
 
   def summarize_text(text, max_length) when is_binary(text) do
     escaped_text = String.replace(text, "\"", "\\\"")
-    Logger.info("Summarizing text #{escaped_text} to #{max_length} characters)")
+    # Logger.debug("Summarizing text #{escaped_text} to #{max_length} characters)")
 
     prompt_text = "Summarize the text #{escaped_text} close to a maximum of #{max_length} characters, keeping as much of the original meaning as possible. Do not add ellipses or other indicators of truncation."
 
     prompt_result = prompt(prompt_text)
 
+
     case prompt_result do
       {:ok, response} ->
-        IO.puts("Response: #{response}")
+        Logger.debug("Requested length: #{max_length}, Original length: #{String.length(text)}, Prompt result length: #{String.length(response)}")
 
       {:error, reason} ->
-        IO.puts("Error: #{inspect(reason)}")
+        Logger.warning("Warning: #{inspect(reason)}")
     end
     prompt_result
   end
