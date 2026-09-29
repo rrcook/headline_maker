@@ -24,6 +24,7 @@ headline_maker [options]
 | `--retroguide`        | `-r`  | string  | Telnet guide string for RetroCampusFeed feed style. Default: `511-1234`                      |
 | `--debugoutput`       |       | string  | Debug output file (no alias).                                                                |
 | `--debuginput`        |       | string  | Debug input file (no alias). If specified, overrides feedstyle with `DebugFeed`.             |
+| `--summarizer`        | `-s`  | string  | Summarizer chain, comma separated, tried in order. Default: `ollama`                         |
 
 ## Example
 
@@ -44,3 +45,34 @@ headline_maker --help
 - All options except `--help` have sensible defaults.
 - Debug options do not have short aliases.
 - If `--debuginput` is specified, the feed style is overridden to use `DebugFeed`, which just reads in the files from the debuginput directory.
+
+## Summarization
+
+Story text is summarized to fit the page. The summarizer is pluggable, in the
+same way feeds are, and is given as a chain tried in order:
+
+| Name | Needs | Notes |
+|------|-------|-------|
+| `ollama` | a reachable ollama server | Default. `OLLAMA_HOST`, `OLLAMA_MODEL` |
+| `anthropic` (alias `claude`) | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` |
+| `gemini` | `GEMINI_API_KEY` | `GEMINI_MODEL` |
+| `none` | nothing | Declines every prompt - see the note below |
+
+```sh
+# local model, falling back to the API on a host that cannot run one
+headline_maker -s ollama,anthropic
+
+# no model at all - stories are trimmed to length
+headline_maker -s none
+```
+
+The chain can also be set with the `SUMMARIZER` environment variable; the
+command line wins. Each summary logs which provider produced it, so an
+unattended run can be traced after the fact.
+
+A model is not optional for a whole run. Choosing and ranking the day's
+stories is itself an editorial pass (`NewsEditor.plan/2`), and it has no
+non-model fallback: if every provider in the chain is unconfigured or fails,
+the run writes nothing and the service keeps serving yesterday's tree. Where a
+failure *is* survivable is shortening an over-long story - there the text is
+kept as written and the page simply runs long.

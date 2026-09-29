@@ -1,4 +1,6 @@
 defmodule HeadlineMaker do
+  require Logger
+
   # Copyright 2025, Ralph Richard Cook
   #
   # This file is part of Prodigy Reloaded.
@@ -14,6 +16,38 @@ defmodule HeadlineMaker do
   # You should have received a copy of the GNU Affero General Public License along with Prodigy Reloaded. If not,
   # see <https://www.gnu.org/licenses/>.
 
+  @moduledoc """
+  Command-line entry point: turn a day's wire copy into the HEADLINE NEWS
+  objects the service serves.
+
+  One run is a straight line, and each step has its own module:
+
+      gather/1          fetch and merge the feeds (a `NewsFeeds` module)
+      NewsEditor.plan/1 rank and cut the stories to a page plan
+      write_objects/2   render that plan (`HeadlineObjects`, `HighlightsBody`)
+
+  Any step that cannot finish exits non-zero without writing, because the
+  caller uploads only on success: yesterday's headlines beat a broken tree.
+
+  ## Options
+
+    * `-i`, `--input` - feed URL, or several separated by commas. Default is
+      memeorandum's RSS.
+    * `-f`, `--feedstyle` - the `NewsFeeds` module that reads them, without the
+      `Elixir.` prefix: `MemeorandumFeed` (default), `FoxCouncilFeed`,
+      `RetrocampusFeed`.
+    * `-d`, `--directory` - where the objects are written.
+    * `-s`, `--summarizer` - provider chain for `Summarizer`.
+    * `--stories` - how many stories to ask the feeds for.
+    * `-r`, `--retroguide`, `-a`, `--attribution` - text placed on the page.
+    * `--debuginput`, `--debugoutput` - read canned copy instead of a feed, and
+      dump the chosen copy as text. No short aliases, deliberately.
+
+  The scheduled run on the service passes `-f FoxCouncilFeed` with that API's
+  world, US and business feeds; the default above is what a bare invocation
+  gets.
+  """
+
   def main(argv) do
     {opts, _args, _invalid} =
       OptionParser.parse(argv,
@@ -26,10 +60,21 @@ defmodule HeadlineMaker do
           retroguide: :string,
           debugoutput: :string,
           debuginput: :string,
-          attribution: :string
+          attribution: :string,
+          summarizer: :string,
+          stories: :integer
         ],
         # Deliberatly not using shortcuts for debug options
-        aliases: [i: :input, o: :output, d: :directory, h: :help, f: :feedstyle, r: :retroguide, a: :attribution]
+        aliases: [
+          i: :input,
+          o: :output,
+          d: :directory,
+          h: :help,
+          f: :feedstyle,
+          r: :retroguide,
+          a: :attribution,
+          s: :summarizer
+        ]
       )
 
     cond do
@@ -40,11 +85,18 @@ defmodule HeadlineMaker do
       true ->
         input = opts[:input] || "https://memeorandum.com/feed.xml"
         output = opts[:output] || "NH00A000.BDY"
+        stories = opts[:stories] || 10
         directory = opts[:directory] || "."
         retroguide = opts[:retroguide] || "511-1234"
         debugoutput = opts[:debugoutput]
         debuginput = opts[:debuginput]
         attribution = opts[:attribution]
+
+        # Command line beats SUMMARIZER beats the default; setting it here
+        # keeps Summarizer's own lookup order intact when the flag is absent.
+        if opts[:summarizer] do
+          Application.put_env(:headline_maker, :summarizer, opts[:summarizer])
+        end
 
         feedstyle =
           case opts[:feedstyle] do
@@ -63,26 +115,117 @@ defmodule HeadlineMaker do
           retroguide: retroguide,
           debugoutput: debugoutput,
           debuginput: debuginput,
-          attribution: attribution
+          attribution: attribution,
+          stories: stories
         }
 
         IO.puts(
           "Input file: #{input}, Output files: #{output}, Directory: #{directory}, Feed Style: #{feedstyle}"
         )
 
-        HeadlineWriter.write_headlines(options)
+        IO.puts("Summarizer chain: #{Enum.map_join(Summarizer.chain(), ", ", & &1.name())}")
 
-   end
+        run(options)
+    end
   end
 
+  # Fetch the wire copy, put a day's HEADLINE NEWS together, and write every
+  # object it takes. Returns non-zero on failure so the caller uploads nothing:
+  # yesterday's headlines are better than a broken tree.
+  defp run(options) do
+    articles = gather(options)
+
+    cond do
+      articles == [] ->
+        Logger.error("No articles from #{options[:input]}; nothing written")
+        exit({:shutdown, 1})
+
+      true ->
+        case NewsEditor.plan(articles) do
+          {:ok, []} ->
+            Logger.error("The editor returned no stories; nothing written")
+            exit({:shutdown, 1})
+
+          {:ok, stories} ->
+            write_objects(stories, options)
+
+          {:error, reason} ->
+            Logger.error("Could not plan today's headlines: #{inspect(reason)}")
+            exit({:shutdown, 1})
+        end
+    end
+  end
+
+  # A day's wire copy, from every feed named in --input.
+  #
+  # The feed modules each take one URL, so several are fetched and merged here
+  # rather than teaching any one of them about lists. This matters for what
+  # gets picked: Fox Council splits its coverage by category, so pulling only
+  # `us.json` means the editor never sees a world story it could rank, however
+  # much the prompt prefers international news.
+  defp gather(options) do
+    feeds = options[:input] |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
+    per_feed = max(div(options[:stories], max(length(feeds), 1)), 3)
+
+    Enum.flat_map(feeds, fn url ->
+      articles = options[:feedstyle].get_stories(%{options | input: url}, per_feed)
+      Logger.info("#{length(articles)} articles from #{url}")
+      articles
+    end)
+  end
+
+  # Public only so the integration test can drive the whole emit step without
+  # a feed or a model behind it.
+  @doc false
+  def write_objects(stories, options) do
+    dir = options[:directory]
+    File.mkdir_p!(dir)
+
+    # The landing page announces the lead story, so it belongs in the same
+    # upload set as the headline chain - the two can then never disagree
+    # about what today's top story is.
+    objects = HeadlineObjects.build(stories) ++ [HighlightsBody.build(hd(stories))]
+
+    for {name, bytes} <- objects do
+      path = Path.join(dir, name)
+      File.write!(path, bytes)
+      Logger.info("Wrote #{path}, #{byte_size(bytes)} bytes")
+    end
+
+    if options[:debugoutput], do: write_debug(stories, options[:debugoutput])
+
+    subs = Enum.sum(Enum.map(stories, &length(&1.substories)))
+    IO.puts("#{length(objects)} objects: #{length(stories)} stories, #{subs} subordinate pages")
+  end
+
+  # The copy as text, for reading without a renderer.
+  defp write_debug(stories, dir) do
+    File.mkdir_p!(dir)
+
+    for {s, i} <- Enum.with_index(stories, 1) do
+      subs = Enum.map_join(s.substories, "\n", fn sub -> "- #{sub.label}\n#{sub.body}" end)
+
+      File.write!(
+        Path.join(dir, "hmdebug_#{i}"),
+        "#{s.headline}#{HeadlineWriter.debug_delimiter()}#{s.body}\n\n#{subs}"
+      )
+    end
+  end
+
+  # Usage text for --help. Kept in step with the switches in main/1 by hand.
   defp print_help do
     IO.puts("""
     Usage: headline_maker [options]
 
     Options:
-      -i, --input   Input file
-      -o, --output  Output file
-      -h, --help    Show this help message
+      -i, --input       Input file
+      -o, --output      Output file
+      -d, --directory   Output directory
+      -f, --feedstyle   Feed style module name
+      -r, --retroguide  Telnet guide string for RetroCampusFeed
+      -a, --attribution Attribution appended to each headline
+      -s, --summarizer  Summarizer chain, comma separated, tried in order
+      -h, --help        Show this help message
     """)
   end
 end
